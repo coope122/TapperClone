@@ -175,63 +175,117 @@ parameter VGA_HEIGHT = 16'd480;
 parameter VIRTUAL_PIXEL_WIDTH = VGA_WIDTH/PIXEL_VIRTUAL_SIZE; // 160
 parameter VIRTUAL_PIXEL_HEIGHT = VGA_HEIGHT/PIXEL_VIRTUAL_SIZE; // 120
 
+
 /* idx_location stores all the locations in the */
 reg [14:0] idx_location;
-/* !!!!!!!!!NOTE!!!!!!!
- - FLAG logic is a bad way to approach this, but I was lazy - I should implement this as an FSM for the button grabs.  */
-reg flag1;
-reg flag2;
 
 // Just so I can see the address being calculated
 assign LEDR = idx_location;
 
-always @(posedge clk or negedge rst)
-begin	
-	if (rst == 1'b0)
-	begin
-		the_vga_draw_frame_write_mem_address <= 15'd0;
-		the_vga_draw_frame_write_mem_data <= 24'd0;
-		the_vga_draw_frame_write_a_pixel <= 1'b0;
-		flag1 <= 1'b0;
-		flag2 <= 1'b0;
-	end
-	else
-	begin
-		/* !!!!! NOTE
-			I use flag logic to cludge this together - a bad idea */
-		if (KEY[1] == 1'b0 && flag1 == 1'b0)
-		begin
-			/* this is the code to write a pixel when KEY[1] is pressed */
-			the_vga_draw_frame_write_mem_address <= idx_location;
-			the_vga_draw_frame_write_mem_data <= {SW[7:0], SW[7:0], SW[7:0]};
-			the_vga_draw_frame_write_a_pixel <= 1'b1;
-			flag1 <= 1'b1;
-		end
-		else if (KEY[1] == 1'b0)
-		begin
-			flag1 <= 1'b1;
-			the_vga_draw_frame_write_a_pixel <= 1'b0;
-		end
-		else
-		begin
-			flag1 <= 1'b0;
-			the_vga_draw_frame_write_a_pixel <= 1'b0;
-		end
-		
-		/* !!!!! NOTE
-			I use flag logic to cludge this together - a bad idea */
-		/* this is the code to increment the idx_location, which is the address to draw the pixel into the frame memory */
-		if (KEY[2] == 1'b0  && flag2 == 1'b0)
-		begin
-			flag2 <= 1'b1;
-			idx_location <= idx_location + 1'b1;
-		end
-		else if (KEY[2] == 1'b1)
-		begin
-			flag2 <= 1'b0;
-		end
+reg [31:0] game_clock;
+always @(posedge clk)
+begin
+    if (frame_done)
+    begin
+        game_clock <= game_clock + 1;
+        if (game_clock >= 120) // Update game state every 60 frames
+        begin
+            game_clock <= 0;
+            // Update game state here
 
-	end
+        end
+    end
 end
 
+reg [9:0] player_x, player_y;
+reg [9:0] customer_x [3:0], customer_y [3:0];
+reg [9:0] score_x, score_y;
+reg [7:0] score;
+
+parameter
+	ROW1 = 10'd90,
+	ROW2 = 10'd186,
+	ROW3 = 10'd282,
+	ROW4 = 10'd378;
+
+always @(posedge clk or negedge rst)
+begin
+    if (rst == 1'b0)
+    begin
+        // Initialize game state
+        player_x <= 10'd512;
+        player_y <= ROW1;
+        score <= 8'd0;
+        // Initialize enemies...
+    end
+    else
+    begin
+        // Handle player movement
+        if (KEY[1] == 1'b0 && game_clock % 120 == 0) player_x <= player_x - 1; // Move left
+		  if (KEY[1] == 1'b1) player_x <= 10'd512; //Reset X Position
+        if (KEY[2] == 1'b0) begin // Move Up
+				case(player_y)
+					ROW1: player_y <= ROW4;
+					ROW2: player_y <= ROW1;
+					ROW3: player_y <= ROW2;
+					ROW4: player_y <= ROW3;
+				endcase
+			end
+        if (KEY[3] == 1'b0) begin // Move down
+				case(player_y)
+					ROW1: player_y <= ROW2;
+					ROW2: player_y <= ROW3;
+					ROW3: player_y <= ROW4;
+					ROW4: player_y <= ROW1;
+				endcase
+			end
+        // Update enemy positions
+        // Check for collisions
+        // Update score
+    end
+end
+
+always @(posedge clk)
+begin
+    if (active_pixels)
+    begin
+        // Set default to read from MIF file
+        the_vga_draw_frame_write_a_pixel <= 1'b0;
+        the_vga_draw_frame_write_mem_address <= (y/4) * VIRTUAL_PIXEL_WIDTH + (x/4);
+        
+        // Check conditions and override if necessary
+        if (x >= player_x && x < player_x + 20 && y >= player_y && y < player_y + 20) begin
+            the_vga_draw_frame_write_mem_data <= 24'h7F2B0A;
+            the_vga_draw_frame_write_a_pixel <= 1'b1;
+        end
+        else if (x >= customer_x[0] && x < customer_x[0] + 20 && y >= customer_y[0] && y < customer_y[0] + 20) begin
+            the_vga_draw_frame_write_mem_data <= 24'h00FF00;
+            the_vga_draw_frame_write_a_pixel <= 1'b1;
+        end
+        else if (x >= customer_x[1] && x < customer_x[1] + 20 && y >= customer_y[1] && y < customer_y[1] + 20) begin
+            the_vga_draw_frame_write_mem_data <= 24'h00FF00;
+            the_vga_draw_frame_write_a_pixel <= 1'b1;
+        end
+        else if (x >= customer_x[2] && x < customer_x[2] + 20 && y >= customer_y[2] && y < customer_y[2] + 20) begin
+            the_vga_draw_frame_write_mem_data <= 24'h00FF00;
+            the_vga_draw_frame_write_a_pixel <= 1'b1;
+        end
+        else if (x >= customer_x[3] && x < customer_x[3] + 20 && y >= customer_y[3] && y < customer_y[3] + 20) begin
+            the_vga_draw_frame_write_mem_data <= 24'h00FF00;
+            the_vga_draw_frame_write_a_pixel <= 1'b1;
+        end
+        else if (x >= score_x && x < score_x + 20 && y >= score_y && y < score_y + 20) begin
+            the_vga_draw_frame_write_mem_data <= 24'h00FF00;
+            the_vga_draw_frame_write_a_pixel <= 1'b1;
+        end
+        else begin
+            // Read from MIF file for uncovered pixels
+            the_vga_draw_frame_write_a_pixel <= 1'b0;
+        end
+    end
+    else
+    begin
+        the_vga_draw_frame_write_a_pixel <= 1'b0;
+    end
+end
 endmodule
