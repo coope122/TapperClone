@@ -157,9 +157,10 @@ module Tapper	(
     reg key2_prev, key3_prev;
     reg [31:0] move_counter;
 	 reg [31:0] cup_counter;
+	 reg [31:0] customer_counter;
     parameter MOVE_DELAY = 2000000; // Adjust this value to control movement speed
 	 parameter CUP_DELAY = 1000000; // Adjust this value to control cup speed
-
+	 parameter CUSTOMER_DELAY = 2000000; //Adjust this value to control customer speed
     always @(posedge clk or negedge rst)
     begin
         if (rst == 1'b0)
@@ -221,6 +222,11 @@ module Tapper	(
                 cup_counter <= cup_counter + 1;
             else
                 cup_counter <= CUP_DELAY;
+					 
+				if (customer_counter <= CUSTOMER_DELAY)
+					customer_counter <= customer_counter + 1;
+				else
+					cup_counter <= CUSTOMER_DELAY;
 
             // Horizontal movement
             if (KEY[1] == 1'b0 && move_counter == MOVE_DELAY)
@@ -346,8 +352,31 @@ module Tapper	(
 						cup_x[3] <= PLAYERX;
 					end
 				end	
-						
-
+					
+				if(customer_counter == CUSTOMER_DELAY)
+					begin
+					if(customer_x[0] >= CUSMAXX)					
+					customer_x[0] <= CUSMINX;
+					else if(random_number == 1)
+					customer_x[0] <= customer_x[0] + 2;
+					
+					if(customer_x[1] >= CUSMAXX)					
+					customer_x[1] <= CUSMINX;
+					else if(random_number == 2)
+					customer_x[1] <= customer_x[1] + 2;
+					
+					if(customer_x[2] >= CUSMAXX)					
+					customer_x[2] <= CUSMINX;
+					else if(random_number == 3)
+					customer_x[2] <= customer_x[2] + 2;
+					
+					if(customer_x[3] >= CUSMAXX)					
+					customer_x[3] <= CUSMINX;
+					else if(random_number == 4)
+					customer_x[3] <= customer_x[3] + 2;
+				
+					customer_counter <= 0;
+				end
             // Update other game elements...
         end
     end
@@ -361,12 +390,12 @@ module Tapper	(
             the_vga_draw_frame_write_mem_address <= (y ) + (x );
 
             // Check conditions and override if necessary
-            if (x >= player_x && x < player_x + 20 && y >= player_y && y < player_y + 20)
+            if (x >= player_x && x < player_x + 20 && y >= player_y && y < player_y + 40)
             begin
                 the_vga_draw_frame_write_mem_data <= 24'h7F2B0A; // Player color
                 the_vga_draw_frame_write_a_pixel <= 1'b1;
             end
-            else if (x >= player_x_prev && x < player_x_prev + 20 && y >= player_y_prev && y < player_y_prev + 20)
+            else if (x >= player_x_prev && x < player_x_prev + 20 && y >= player_y_prev && y < player_y_prev + 40)
             begin
                 the_vga_draw_frame_write_a_pixel <= 1'b0;
             end
@@ -437,5 +466,27 @@ module Tapper	(
             the_vga_draw_frame_write_a_pixel <= 1'b0;
         end
     end
+	 
+	 //lfsr
+	 wire [2:0] random_number;
+	 reg [6:0] lfsr;
+    wire feedback;
+
+    // XOR feedback taps for maximal length sequence (primitive polynomial x^7 + x^6 + 1)
+    
+
+    always @(posedge clk or negedge rst) begin
+        if (rst == 1'b0) begin
+            lfsr <= 7'b0110010; // Non-zero seed value
+        end else begin
+            // Shift the LFSR and apply feedback
+				
+            lfsr <= {feedback, lfsr[5:0]};
+        end
+    end
+
+   assign feedback = lfsr[6] ^ lfsr[1];
+	assign random_number = lfsr[2:0];
+
 
 endmodule
