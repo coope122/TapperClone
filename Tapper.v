@@ -40,7 +40,7 @@ module Tapper	(
     wire rst;
 
     assign clk = CLOCK_50;
-    assign rst = KEY[0];
+    assign rst = SW[0];
 
     wire [9:0] SW_db;
 
@@ -137,50 +137,92 @@ module Tapper	(
     end
 
     reg [9:0] player_x, player_y;
-    reg [9:0] player_x_prev, player_y_prev; // Added registers for previous position
-    reg [9:0] customer_x [3:0], customer_y [3:0];
+    reg [9:0] player_x_prev, player_y_prev; 
+    reg [9:0] customer_x [3:0], customer_y [3:0], cup_x [3:0], cup_y [3:0];
+	 reg [9:0] customer_x_prev [3:0], customer_y_prev [3:0], cup_x_prev [3:0], cup_y_prev [3:0];
     reg [9:0] score_x, score_y;
     reg [7:0] score;
-
+	 reg cupThrown[3:0];
+	 
     parameter
         ROW1 = 10'd92,
         ROW2 = 10'd188,
         ROW3 = 10'd284,
-        ROW4 = 10'd380;
+        ROW4 = 10'd380,
+		  PLAYERX = 10'd400,
+		  CUSMINX = 10'd60,
+		  CUSMAXX = 10'd380;
 
     // Declare registers to hold the previous state of keys for edge detection
     reg key2_prev, key3_prev;
     reg [31:0] move_counter;
-    parameter MOVE_DELAY = 1000000; // Adjust this value to control movement speed
+	 reg [31:0] cup_counter;
+    parameter MOVE_DELAY = 2000000; // Adjust this value to control movement speed
+	 parameter CUP_DELAY = 1000000; // Adjust this value to control cup speed
 
     always @(posedge clk or negedge rst)
     begin
         if (rst == 1'b0)
         begin
             // Initialize game state
-            player_x <= 10'd512;
+            player_x <= PLAYERX;
             player_y <= ROW1;
-            player_x_prev <= 10'd512; 
+            player_x_prev <= PLAYERX; 
             player_y_prev <= ROW1;
             score <= 8'd0;
             key2_prev <= 1'b1;
             key3_prev <= 1'b1;
             move_counter <= 0;
-            // Initialize other game elements...
+            cup_counter <= 0;
+				
+				customer_x[0] <= CUSMINX;
+				customer_x[1] <= CUSMINX;
+				customer_x[2] <= CUSMINX;
+				customer_x[3] <= CUSMINX;
+				customer_y[0] <= ROW1;
+				customer_y[1] <= ROW2;
+				customer_y[2] <= ROW3;
+				customer_y[3] <= ROW4;
+				
+				cup_x[0] <= CUSMAXX;
+				cup_x[1] <= CUSMAXX;
+				cup_x[2] <= CUSMAXX;
+				cup_x[3] <= CUSMAXX;
+				cup_y[0] <= ROW1;
+				cup_y[1] <= ROW2;
+				cup_y[2] <= ROW3;
+				cup_y[3] <= ROW4;
         end
         else
         begin
             // Store the previous position before updating
             player_x_prev <= player_x;
             player_y_prev <= player_y;
+				
+				cup_x_prev[0] <= cup_x[0];
+				cup_x_prev[1] <= cup_x[1];
+				cup_x_prev[2] <= cup_x[2];
+				cup_x_prev[3] <= cup_x[3];
+
+				
+				customer_x_prev[0] <= customer_x[0];
+				customer_x_prev[1] <= customer_x[1];
+				customer_x_prev[2] <= customer_x[2];
+				customer_x_prev[3] <= customer_x[3];
+
 
             // Update move_counter
             if (move_counter < MOVE_DELAY)
                 move_counter <= move_counter + 1;
             else
                 move_counter <= MOVE_DELAY;
+					 
+				if (cup_counter < CUP_DELAY)
+                cup_counter <= cup_counter + 1;
+            else
+                cup_counter <= CUP_DELAY;
 
-            // Handle horizontal movement
+            // Horizontal movement
             if (KEY[1] == 1'b0 && move_counter == MOVE_DELAY)
             begin
                 if (player_x > 0)
@@ -189,10 +231,9 @@ module Tapper	(
             end else if(KEY[1] == 1'b1 && move_counter == MOVE_DELAY) 
 				begin
 				//Reset player x when letting go
-					player_x <= 10'd512;
+					player_x <= PLAYERX;
 				end
 				
-            // Vertical movement with edge detection
             if (key2_prev == 1'b1 && KEY[2] == 1'b0)
             begin
                 // move up
@@ -220,6 +261,92 @@ module Tapper	(
             
             key2_prev <= KEY[2];
             key3_prev <= KEY[3];
+				
+				if (KEY[0] == 0) begin
+					case(player_y)
+					ROW1: cupThrown[0] <= 1'b1;
+					ROW2: cupThrown[1] <= 1'b1;
+					ROW3: cupThrown[2] <= 1'b1;
+					ROW4: cupThrown[3] <= 1'b1;
+					default: begin
+						cupThrown[0] <= 0;
+						cupThrown[1] <= 0;
+						cupThrown[2] <= 0;
+						cupThrown[3] <= 0;
+						end
+				endcase
+				end
+				
+
+				if (cupThrown[0] == 1'b1)
+				begin
+					if (cup_counter == CUP_DELAY)
+					begin
+						if (cup_x[0] > customer_x[0])
+							cup_x[0] <= cup_x[0] - 1; // Move left
+						cup_counter <= 0; // Reset cup_counter after moving
+					end
+					else
+						cup_counter <= cup_counter + 1;
+
+					if (cup_x[0] <= customer_x[0])
+					begin
+						cupThrown[0] <= 0;
+						cup_x[0] <= PLAYERX;
+					end
+				end	
+				if (cupThrown[1] == 1'b1)
+				begin
+					if (cup_counter == CUP_DELAY)
+					begin
+						if (cup_x[1] > customer_x[1])
+							cup_x[1] <= cup_x[1] - 1; // Move left
+						cup_counter <= 0; // Reset cup_counter after moving
+					end
+					else
+						cup_counter <= cup_counter + 1;
+
+					if (cup_x[1] <= customer_x[0])
+					begin
+						cupThrown[1] <= 0;
+						cup_x[1] <= PLAYERX;
+					end
+				end	
+				if (cupThrown[2] == 1'b1)
+				begin
+					if (cup_counter == CUP_DELAY)
+					begin
+						if (cup_x[2] > customer_x[2])
+							cup_x[2] <= cup_x[2] - 1; // Move left
+						cup_counter <= 0; // Reset cup_counter after moving
+					end
+					else
+						cup_counter <= cup_counter + 1;
+
+					if (cup_x[2] <= customer_x[0])
+					begin
+						cupThrown[2] <= 0;
+						cup_x[2] <= PLAYERX;
+					end
+				end	
+				if (cupThrown[3] == 1'b1)
+				begin
+					if (cup_counter == CUP_DELAY)
+					begin
+						if (cup_x[3] > customer_x[3])
+							cup_x[3] <= cup_x[3] - 1; // Move left
+						cup_counter <= 0; // Reset cup_counter after moving
+					end
+					else
+						cup_counter <= cup_counter + 1;
+
+					if (cup_x[3] <= customer_x[3])
+					begin
+						cupThrown[3] <= 0;
+						cup_x[3] <= PLAYERX;
+					end
+				end	
+						
 
             // Update other game elements...
         end
@@ -231,7 +358,7 @@ module Tapper	(
         begin
             // Set default to read from MIF file
             the_vga_draw_frame_write_a_pixel <= 1'b0;
-            the_vga_draw_frame_write_mem_address <= (y / PIXEL_VIRTUAL_SIZE) * VIRTUAL_PIXEL_WIDTH + (x / PIXEL_VIRTUAL_SIZE);
+            the_vga_draw_frame_write_mem_address <= (y ) + (x );
 
             // Check conditions and override if necessary
             if (x >= player_x && x < player_x + 20 && y >= player_y && y < player_y + 20)
@@ -241,15 +368,64 @@ module Tapper	(
             end
             else if (x >= player_x_prev && x < player_x_prev + 20 && y >= player_y_prev && y < player_y_prev + 20)
             begin
-                the_vga_draw_frame_write_mem_data <= 24'hFFFFFF; // Background color
-                the_vga_draw_frame_write_a_pixel <= 1'b1;
+                the_vga_draw_frame_write_a_pixel <= 1'b0;
             end
             else if (x >= customer_x[0] && x < customer_x[0] + 20 && y >= customer_y[0] && y < customer_y[0] + 20)
             begin
                 the_vga_draw_frame_write_mem_data <= 24'h00FF00; // Customer color
                 the_vga_draw_frame_write_a_pixel <= 1'b1;
             end
-            // Repeat for other customers and score if necessary...
+            else if (x >= customer_x[1] && x < customer_x[1] + 20 && y >= customer_y[1] && y < customer_y[1] + 20)
+            begin
+                the_vga_draw_frame_write_mem_data <= 24'h00FF00;
+                the_vga_draw_frame_write_a_pixel <= 1'b1;
+            end
+            else if (x >= customer_x[2] && x < customer_x[2] + 20 && y >= customer_y[2] && y < customer_y[2] + 20)
+            begin
+                the_vga_draw_frame_write_mem_data <= 24'h00FF00; 
+                the_vga_draw_frame_write_a_pixel <= 1'b1;
+            end
+            else if (x >= customer_x[3] && x < customer_x[3] + 20 && y >= customer_y[3] && y < customer_y[3] + 20)
+            begin
+                the_vga_draw_frame_write_mem_data <= 24'h00FF00; 
+                the_vga_draw_frame_write_a_pixel <= 1'b1;
+            end
+            else if (x >= cup_x[0] && x < cup_x[0] + 10 && y >= cup_y[0] && y < cup_y[0] + 10 && cupThrown[0] == 1'b1 && cup_x[0] < PLAYERX)
+            begin
+                the_vga_draw_frame_write_mem_data <= 24'h7F2B0A; // Cup color
+                the_vga_draw_frame_write_a_pixel <= 1'b1;
+            end
+				else if (x >= cup_x_prev[0] && x < cup_x_prev[0] + 10 && y >= cup_y[0] && y < cup_y[0] + 10 && cupThrown[0] == 1'b1)
+            begin
+                the_vga_draw_frame_write_a_pixel <= 1'b0;
+            end
+            else if (x >= cup_x[1] && x < cup_x[1] + 10 && y >= cup_y[1] && y < cup_y[1] + 10 && cupThrown[1] == 1'b1 && cup_x[1] < PLAYERX)
+            begin
+                the_vga_draw_frame_write_mem_data <= 24'h7F2B0A; // Cup color
+                the_vga_draw_frame_write_a_pixel <= 1'b1;
+            end
+				else if (x >= cup_x_prev[1] && x < cup_x_prev[1] + 10 && y >= cup_y[1] && y < cup_y[1] + 10 && cupThrown[1] == 1'b1)
+            begin
+                the_vga_draw_frame_write_a_pixel <= 1'b0;
+            end
+            else if (x >= cup_x[2] && x < cup_x[2] + 10 && y >= cup_y[2] && y < cup_y[2] + 10 && cupThrown[2] == 1'b1 && cup_x[2] < PLAYERX)
+            begin
+                the_vga_draw_frame_write_mem_data <= 24'h7F2B0A; // Cup color
+                the_vga_draw_frame_write_a_pixel <= 1'b1;
+            end
+				else if (x >= cup_x_prev[2] && x < cup_x_prev[2] + 10 && y >= cup_y[2] && y < cup_y[2] + 10 && cupThrown[2] == 1'b1)
+            begin
+                the_vga_draw_frame_write_a_pixel <= 1'b0;
+            end
+            else if (x >= cup_x[3] && x < cup_x[3] + 10 && y >= cup_y[3] && y < cup_y[3] + 10 && cupThrown[3] == 1'b1 && cup_x[3] < PLAYERX)
+            begin
+                the_vga_draw_frame_write_mem_data <= 24'h7F2B0A; // Cup color
+                the_vga_draw_frame_write_a_pixel <= 1'b1;
+            end
+				else if (x >= cup_x_prev[3] && x < cup_x_prev[3] + 10 && y >= cup_y[3] && y < cup_y[3] + 10 && cupThrown[3] == 1'b1)
+            begin
+                the_vga_draw_frame_write_a_pixel <= 1'b0;
+            end
             else
             begin
                 // Read from MIF file for uncovered pixels
