@@ -119,7 +119,7 @@ module Tapper	(
     reg [14:0] idx_location;
 
     // Just so I can see the address being calculated
-    assign LEDR[9:0] = idx_location[9:0]; // Adjusted to fit 10 LEDs
+    
 
     reg [31:0] game_clock;
     always @(posedge clk)
@@ -160,7 +160,7 @@ module Tapper	(
 	 reg [31:0] customer_counter;
     parameter MOVE_DELAY = 2000000; // Adjust this value to control movement speed
 	 parameter CUP_DELAY = 1000000; // Adjust this value to control cup speed
-	 parameter CUSTOMER_DELAY = 2000000; //Adjust this value to control customer speed
+	 parameter CUSTOMER_DELAY = 2000980; //Adjust this value to control customer speed
     always @(posedge clk or negedge rst)
     begin
         if (rst == 1'b0)
@@ -295,9 +295,10 @@ module Tapper	(
 					else
 						cup_counter <= cup_counter + 1;
 
-					if (cup_x[0] <= customer_x[0])
+					if (cup_x[0] <= customer_x[0] + 20)
 					begin
 						cupThrown[0] <= 0;
+						customer_x[0] <= CUSMINX;
 						cup_x[0] <= PLAYERX;
 					end
 				end	
@@ -312,9 +313,10 @@ module Tapper	(
 					else
 						cup_counter <= cup_counter + 1;
 
-					if (cup_x[1] <= customer_x[0])
+					if (cup_x[1] <= customer_x[1] + 20)
 					begin
 						cupThrown[1] <= 0;
+						customer_x[1] <= CUSMINX;
 						cup_x[1] <= PLAYERX;
 					end
 				end	
@@ -329,9 +331,10 @@ module Tapper	(
 					else
 						cup_counter <= cup_counter + 1;
 
-					if (cup_x[2] <= customer_x[0])
+					if (cup_x[2] <= customer_x[2] + 20)
 					begin
 						cupThrown[2] <= 0;
+						customer_x[2] <= CUSMINX;
 						cup_x[2] <= PLAYERX;
 					end
 				end	
@@ -346,9 +349,10 @@ module Tapper	(
 					else
 						cup_counter <= cup_counter + 1;
 
-					if (cup_x[3] <= customer_x[3])
+					if (cup_x[3] <= customer_x[3] + 20)
 					begin
 						cupThrown[3] <= 0;
+						customer_x[3] <= CUSMINX;
 						cup_x[3] <= PLAYERX;
 					end
 				end	
@@ -357,23 +361,23 @@ module Tapper	(
 					begin
 					if(customer_x[0] >= CUSMAXX)					
 					customer_x[0] <= CUSMINX;
-					else if(random_number == 1)
-					customer_x[0] <= customer_x[0] + 2;
+					else if(random % 13 == 0)
+					customer_x[0] <= customer_x[0] + 5;
 					
 					if(customer_x[1] >= CUSMAXX)					
 					customer_x[1] <= CUSMINX;
-					else if(random_number == 2)
-					customer_x[1] <= customer_x[1] + 2;
+					else if(random % 5 == 1)
+					customer_x[1] <= customer_x[1] + 3;
 					
 					if(customer_x[2] >= CUSMAXX)					
 					customer_x[2] <= CUSMINX;
-					else if(random_number == 3)
-					customer_x[2] <= customer_x[2] + 2;
+					else if(random % 13 == 2)
+					customer_x[2] <= customer_x[2] + 3;
 					
 					if(customer_x[3] >= CUSMAXX)					
 					customer_x[3] <= CUSMINX;
-					else if(random_number == 4)
-					customer_x[3] <= customer_x[3] + 2;
+					else if(random % 5 == 3)
+					customer_x[3] <= customer_x[3] + 4;
 				
 					customer_counter <= 0;
 				end
@@ -390,7 +394,12 @@ module Tapper	(
             the_vga_draw_frame_write_mem_address <= (y ) + (x );
 
             // Check conditions and override if necessary
-            if (x >= player_x && x < player_x + 20 && y >= player_y && y < player_y + 40)
+				if (x <= 35) 
+				begin
+					the_vga_draw_frame_write_mem_data <= 24'h22249C;
+					the_vga_draw_frame_write_a_pixel <= 1'b1;
+					end
+            else if (x >= player_x && x < player_x + 20 && y >= player_y && y < player_y + 40)
             begin
                 the_vga_draw_frame_write_mem_data <= 24'h7F2B0A; // Player color
                 the_vga_draw_frame_write_a_pixel <= 1'b1;
@@ -467,26 +476,14 @@ module Tapper	(
         end
     end
 	 
-	 //lfsr
-	 wire [2:0] random_number;
-	 reg [6:0] lfsr;
-    wire feedback;
-
-    // XOR feedback taps for maximal length sequence (primitive polynomial x^7 + x^6 + 1)
-    
-
-    always @(posedge clk or negedge rst) begin
-        if (rst == 1'b0) begin
-            lfsr <= 7'b0110010; // Non-zero seed value
-        end else begin
-            // Shift the LFSR and apply feedback
-				
-            lfsr <= {feedback, lfsr[5:0]};
-        end
-    end
-
-   assign feedback = lfsr[6] ^ lfsr[1];
-	assign random_number = lfsr[2:0];
-
-
+	 reg[8:0] random;
+	 
+	 always @(posedge clk or negedge rst)
+	 begin
+	 if(!rst)
+		random = 0;
+	 else
+	  random = random + 1;
+	end
+	
 endmodule
