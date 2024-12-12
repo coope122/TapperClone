@@ -39,8 +39,7 @@ module Tapper (
 	 assign HEX3 = seg7_neg_sign;
 	 wire [9:0]input_number;
 	 assign input_number = score;
-    // DONE STANDARD PORT DECLARATION ABOVE
-    /* HANDLE SIGNALS FOR CIRCUIT */
+
     wire clk;
     wire rst;
 	 
@@ -244,7 +243,10 @@ reg [9:0] led;
 				cup_y[2] <= ROW3;
 				cup_y[3] <= ROW4;
 				
-				
+				cupThrown[0] <= 0;
+				cupThrown[1] <= 0;
+				cupThrown[2] <= 0;
+				cupThrown[3] <= 0;
 			
 				
 				end
@@ -627,32 +629,32 @@ reg [9:0] led;
 		if (!rst) begin
 		GAMESTATE <= GAMESTART;
 		game_start <= 1;
+		temp <= 1;
 		game_won <= 0;
 		speed <= 0;
 		end
 		else
 	   if(GAMESTATE == GAMESTART && KEY[0] == 0) begin
-		temp <= 1;
 		game_start <= 0;
 		speed <= 1;
 		GAMESTATE <= GAMELVL1;
 		end
 		else if(GAMESTATE == GAMELVL1 && score == 12) begin
+		temp <= 3;
 		game_start2 <= 1;
 		GAMESTATE <= GAMESTART2;
 		end
 		else if(GAMESTATE == GAMESTART2 && KEY[0] == 0) begin
-		temp <= 3;
 		game_start2 <= 0;
 		speed <= 5;
 		GAMESTATE <= GAMELVL2;
 		end
 		else if(GAMESTATE == GAMELVL2 && score == 24) begin
+		temp <= 7;
 		game_start3 <= 1;
 		GAMESTATE <= GAMESTART3;
 		end
 		else if(GAMESTATE == GAMESTART3 && KEY[0] == 0) begin
-		temp <= 7;
 		game_start3 <= 0;
 		game_start2 <= 0;
 		game_start <= 0;
